@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string.h>
 #include <windows.h>
+#include "serial.h"
 
 
 //takes a Windows error code (from GetLastError) and returns a string with the error message
@@ -14,8 +15,9 @@ typedef int (*ArmaCallback)(char const* name, char const* function, char const* 
 class ICommunicationMethod
 {
 public:
-	virtual void runCommand(std::string function, std::string* argv, int argc, std::stringstream& ans) = 0;
+	virtual void runInstanceCommand(std::string function, std::string* argv, int argc, std::stringstream& ans, std::map<std::string, ICommunicationMethod*>& commMethds) = 0;
 	virtual std::string getID() = 0;
+	virtual bool isConnected() = 0;
 };
 
 enum ReadCallbackTypes {
@@ -26,3 +28,5 @@ struct ReadCallbackOptions {
 	ReadCallbackTypes type;
 	union { char onChar; int onLength; } value;
 };
+
+bool equalsIgnoreCase(const std::string& a, const std::string& b);

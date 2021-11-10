@@ -47,13 +47,13 @@ private:
 	//whether a write thread should be used
 	bool useWriteThread;
 
-	ArmaCallback callback;
+	ArmaCallback* callback;
 	
 
 public:
 	ReadCallbackOptions callbackOptions;
 	ReadWriteHandler(T* handle, ICommunicationMethod* commMethod, std::function<bool(T*, char*, DWORD, DWORD*)> writeString,
-		std::function<bool(T*, char*)> readOneChar, ArmaCallback callback, bool useReadThread, bool useWriteThread) {
+		std::function<bool(T*, char*)> readOneChar, ArmaCallback* callback, bool useReadThread, bool useWriteThread) {
 		this->handle = handle;
 		this->commMethod = commMethod;
 		this->writeString = writeString;
@@ -84,7 +84,7 @@ public:
 				out << "Error while writing: " << formatErr(err);
 			}
 			else {
-				out << "Successfully wrote " << written << "bytes";
+				out << "Successfully wrote " << written << " bytes";
 			}
 		}
 	}
@@ -142,13 +142,24 @@ public:
 		std::string* buffd[101];
 		for (int i = 0; i < 101; i++) buffd[i] = nullptr;
 		int ind = 0;
+		int charsRead = 0;
 		while (true) {
 			//this may fail but there's nothing we can really do, so....
 			if (readOk = this->readOneChar(this->handle, readChar)) {
-				line << readChar[0];
+				if (this->callbackOptions.type != ReadCallbackTypes::ON_CHAR || readChar[0] != this->callbackOptions.value.onChar) {
+					line << readChar[0];
+					charsRead++;
+				}
 			}
 			//if (readOk && readChar[0] == '\n') {
-			if (readOk) {
+			bool shouldCallback = false;
+			if (this->callbackOptions.type == ReadCallbackTypes::ON_CHAR && readOk) {
+				shouldCallback = readChar[0] == this->callbackOptions.value.onChar;
+			}
+			else if (this->callbackOptions.type == ReadCallbackTypes::ON_LENGTH) {
+				shouldCallback = (charsRead >= this->callbackOptions.value.onLength);
+			}
+			if (shouldCallback) {
 				if (buffd[ind] != nullptr) delete (buffd[ind]);
 				buffd[ind] = new std::string("[\"" + commMethod->getID() + "\", \"" + line.str() + "\"]");
 				std::string* ans = buffd[ind++];
@@ -156,12 +167,13 @@ public:
 				line.str(std::string());
 				//callback should never be nullptr at this point. if it is, something
 				//has gone seriously wrong
-				while (callback("ArmaCOM", "data_read", ans->c_str()) == -1) {
+				while ((*callback)("ArmaCOM", "data_read", ans->c_str()) == -1) {
 					//if the callback returns -1, the game's buffer for callback data is full,
 					//so we have to wait until that's cleared. Which may be never.
 					//Oh well.
 					Sleep(1);
 				}
+				charsRead = 0;
 			}
 			if (!usingReadThread.load()) return;
 		}

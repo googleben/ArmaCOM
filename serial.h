@@ -21,6 +21,8 @@ private:
 
 	std::string id;
 
+	bool connected = false;
+
 	//whether we want to use the read thread
 	bool usingReadThread = true;
 
@@ -58,7 +60,7 @@ private:
 	ReadWriteHandler<HANDLE>* rwHandler;
 
 public:
-	SerialPort(std::string portName, ArmaCallback callback);
+	SerialPort(std::string portName, ArmaCallback* callback);
 
 	bool isConnected() {
 		return serialPort != nullptr;
@@ -78,15 +80,22 @@ public:
 
 	//attempts to start a write thread. may be called before the serial port is connected.
 	//prints error/success messages to `out`.
-	void useWriteThread(std::stringstream& out);
+	void enableWriteThread(std::stringstream& out);
 
 	//attempts to write `data` to the serial port, using the write thread if enabled.
 	//prints error/success messages to `out`. can not detect whether a threaded write failed.
 	void write(std::string data, std::stringstream& out);
 
-	void runCommand(std::string function, std::string* argv, int argc, std::stringstream& out);
+	void runInstanceCommand(std::string function, std::string* argv, int argc, std::stringstream& out, std::map<std::string, ICommunicationMethod*>& commMethds);
+	static void runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& out, std::map<std::string, ICommunicationMethod*>& commMethods, ArmaCallback* callback);
 	std::string getID();
 
+	std::string& getPortName() {
+		return this->portName;
+	}
+	std::string& getPortNamePretty() {
+		return this->portNamePretty;
+	}
 	bool isUsingWriteThread() {
 		return usingWriteThread;
 	}

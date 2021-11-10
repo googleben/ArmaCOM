@@ -13,25 +13,16 @@
 #include "util.h"
 #include "framework.h"
 
-	
-
 //the callback function Arma gives us
 static ArmaCallback callback = nullptr;
 
-
-
-
-
-
-static std::map<std::string, SerialPort*> serialPorts;
-
 //maps port names to SerialPorts to allow multiple simultaneous connections
-static std::map<std::string, ICommunicationMethod*> commMethods;
+std::map<std::string, ICommunicationMethod*> commMethods;
 
 //called when the extension is loaded by ARMA
 void __stdcall RVExtensionVersion(char* output, int outputSize)
 {
-	strncpy_s(output, outputSize, "ArmaCOM v0.2", (size_t)outputSize - 1);
+	strncpy_s(output, outputSize, "ArmaCOM v2.0-beta", (size_t)outputSize - 1);
 }
 
 //called when the extension is loaded by ARMA
@@ -42,8 +33,7 @@ void __stdcall RVExtensionRegisterCallback(ArmaCallback c) {
 //called when the extension is called with arguments
 int __stdcall RVExtensionArgs(char* output, int outputSize, const char* functionC, const char** argvC, int argc)
 {
-	//used for QueryDosDevice
-	char pathBuffer[800];
+	
 	std::string function(functionC);
 	std::stringstream ans;
 	std::string* argv{ new std::string[argc]{} };
@@ -63,72 +53,36 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 	//i'm kind of playing with fire here using GOTOs (especially in threaded code)
 	//but this is side-project code that doesn't really matter so it's the nicest-looking
 	//way to handle this stuff without more complexity. much better than nesting several ifs deep.
-	if (function == "serial") {
+	if (equalsIgnoreCase(function, "serial")) {
+		SerialPort::runStaticCommand(function, argv, argc, ans, commMethods, &callback);
+	}
+	else if (equalsIgnoreCase(function, "destroy")) {
+		//@GlobalCommand destroy
+		//@Args instance: UUID
+		//@Return Success or failure message
+		//@Description Destroys an instance of a communication method if it is not currently connected
 		if (argc == 0) {
 			ans << "You must specify additional arguments";
 			goto end;
 		}
 		std::string& function2 = *argv;
-		if (function2 == "create") {
-			SerialPort* port;
-			if (argc == 1) { ans << "You must specify a port for this command"; goto end; }
-			if (QueryDosDeviceA(argv[1].c_str(), pathBuffer, 800) == 0) {
-					ans << "The specified port (\"" << argv[1] << "\") is invalid";
-					goto end;
-			}
-			if (serialPorts.count(argv[1]) == 0) {
-					port = new SerialPort(argv[1], callback);
-					serialPorts[argv[1]] = port;
-					commMethods[port->getID()] = port;
-			}
-			else {
-				port = serialPorts[argv[1]];
-			}
-			ans << port->getID();
+		if (commMethods.count(function2) == 0) {
+			ans << "No such instance \"" << function2 << "\"";
+			goto end;
 		}
-		else if (function2 == "listPorts") {
-			bool found = false;
-			//loop over possible com ports, because the alternative is reading registry keys
-			for (int i = 0; i < 255; i++) {
-				std::string portName = "COM" + std::to_string(i);
-				DWORD comTest = QueryDosDeviceA(portName.c_str(), pathBuffer, 800);
-				if (comTest != 0) {
-					if (found) ans << ", ";
-					else found = true;
-					ans << portName << ": " << pathBuffer;
-				}
-			}
-			if (!found) ans << "No COM ports found";
+		auto commMethod = commMethods[function2];
+		if (commMethod->isConnected()) {
+			ans << "You must disconnect before destroying";
+			goto end;
 		}
-		else if (function2 == "listBaudRates") {
-			for (int i = 0; i < numRates; i++) {
-				if (i != 0) ans << ", ";
-				ans << i << ": " << baudNames[i];
-			}
-		}
-		else if (function2 == "listStopBits") {
-			for (int i = 0; i < numStopBits; i++) {
-				if (i != 0) ans << ", ";
-				ans << i << ": " << stopBitNames[i];
-			}
-		}
-		else if (function2 == "listParities") {
-			for (int i = 0; i < numParities; i++) {
-				if (i != 0) ans << ", ";
-				ans << i << ": " << parityNames[i];
-			}
-		}
-		else if (function2 == "listDataBits") {
-			for (int i = 0; i < numDataBits; i++) {
-				if (i != 0) ans << ", ";
-				ans << i << ": " << dataBitNames[i];
-			}
-		}
+		commMethods.erase(function2);
+		delete commMethod;
+		ans << "Instance destroyed";
 	}
 	else {
 		if (commMethods.count(function) != 0) {
 			auto commMethod = commMethods[function];
-			commMethod->runCommand(function, argv, argc, ans);
+			commMethod->runInstanceCommand(function, argv, argc, ans, commMethods);
 		}
 		else {
 			ans << "Unrecognized function";
