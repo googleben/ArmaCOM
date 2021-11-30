@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "serial.h"
 #include "util.h"
 #include <functional>
@@ -25,13 +24,11 @@
 //we cache them here to make life a little easier for devs
 static std::map<std::string, SerialPort*> serialPorts;
 
-SerialPort::SerialPort(std::string portName, ArmaCallback* callback) {
-	UUID id;
-	UuidCreate(&id);
-	char* idCStr;
-	UuidToStringA(&id, (RPC_CSTR*)&idCStr);
-	this->id = idCStr;
-	RpcStringFreeA((RPC_CSTR*)&idCStr);
+extern std::map<std::string, ICommunicationMethod*> commMethods;
+extern ArmaCallback callback;
+
+SerialPort::SerialPort(std::string portName) {
+	this->id = generateUUID();
 	this->portName = portPrefix + portName;
 	this->portNamePretty = portName;
 	std::function<bool(HANDLE*, char*, DWORD, DWORD*)> writeFunc = [](HANDLE* handle, char* data, DWORD dataSize, DWORD* written) {
@@ -42,7 +39,7 @@ SerialPort::SerialPort(std::string portName, ArmaCallback* callback) {
 		auto ok = ReadFile(*handle, readChar, 1, &charsRead, nullptr);
 		return ok && charsRead == 1;
 	};
-	this->rwHandler = new ReadWriteHandler<HANDLE>(&(this->serialPort), this, writeFunc, readFunc, callback, true, false);
+	this->rwHandler = new ReadWriteHandler<HANDLE>(&(this->serialPort), this, writeFunc, readFunc, true, false);
 }
 
 
@@ -344,8 +341,16 @@ void SerialPort::setEvtChar(char newEvtChar, std::stringstream& out) {
 	}
 }
 
-void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int argc, std::stringstream& ans, std::map<std::string, ICommunicationMethod*>& commMethds) {
+bool SerialPort::destroy() {
+	if (this->connected) return false;
+	serialPorts.erase(this->id);
+	return true;
+}
+
+void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int argc, std::stringstream& ans) {
 	std::string& function = argv[0];
+	argv++;
+	argc--;
 	if (equalsIgnoreCase(function, "getBaudRate")) {
 		//@InstanceCommand serial.getBaudRate
 		//@Args 
@@ -519,12 +524,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args baudRateIndex: int
 		//@Return 
 		//@Description Sets the baud rate. `baudRateIndex` is the index of the desired baud rate (from `listBaudRates`).
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setBaudRate(val, ans);
 		}
 		catch (std::exception e) {
@@ -536,12 +541,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args parityIndex: int
 		//@Return 
 		//@Description Sets the parity. `parityIndex` is the index of the desired parity (from `listParities`).
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setParity(val, ans);
 		}
 		catch (std::exception e) {
@@ -553,12 +558,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args stopBitsIndex: int
 		//@Return 
 		//@Description Sets the stop bit(s). `stopBitsIndex` is the index of the desired stop bit(s) (from `listStopBits`).
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setStopBits(val, ans);
 		}
 		catch (std::exception e) {
@@ -570,12 +575,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args dataBitsIndex: int
 		//@Return 
 		//@Description Sets the data bits. `dataBitsIndex` is the index of the desired baud rate (from `listDataBits`).
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setDataBits(val, ans);
 		}
 		catch (std::exception e) {
@@ -587,13 +592,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fParity: bool
 		//@Return 
 		//@Description Sets `fParity`. If `true`, parity checking is performed. Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -605,13 +610,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fOutxCtsFlow: bool
 		//@Return 
 		//@Description Sets `fOutxCtsFlow`. If `true`, the Clear-To-Send signal is monitored, and when the CTS is turned off, output is suspended until the CTS is sent again. Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -623,13 +628,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fOutxDsrFlow: bool
 		//@Return 
 		//@Description Sets fOutxDsrFlow. If `true`, the Data-Set-Ready signal is monitored, and when the DSR is turned off, output is suspended until the DSR is sent again. Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -641,14 +646,14 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fDtsControl: 0 | 1 | 2
 		//@Return 
 		//@Description Sets fDtrControl. If `0`, the Data-Terminal-Ready line is disabled. If `1`, the DTR line is enabled and left on. If `2`, it is an error to adjust the DTR line. Default: `1`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		int val;
-		if (argv[1] == "0") val = 0;
-		else if (argv[1] == "1") val = 1;
-		else if (argv[1] == "2") val = 2;
+		if (argv[0] == "0") val = 0;
+		else if (argv[0] == "1") val = 1;
+		else if (argv[0] == "2") val = 2;
 		else {
 			ans << "Expected 0, 1, or 2";
 			goto end;
@@ -660,13 +665,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fDsrSensitivity: bool
 		//@Return 
 		//@Description Sets fDsrSensitivity. If `true`, the driver is sensitive to the state of the DSR signal - all recieved bytes will be ignored unless the DSR input line is high. Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -678,13 +683,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fTXContinueOnXoff: bool
 		//@Return 
 		//@Description Sets fTXContinueOnXoff. If `true`, transmission continues after the input buffer has come within `XoffLim` bytes of being full and the driver has transmitted the `XoffChar` character to stop receiving bytes. If `false`, transmission does not continue until the input buffer is within `XonLim` bytes of being empty and the driver has transmitted the `XonChar` character to resume reception. Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -696,13 +701,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fOutX: bool
 		//@Return 
 		//@Description Sets fOutX. If `true`, transmission stops when the `XoffChar` character is received and starts again when the `XonChar` character is received. Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -714,13 +719,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fInX: bool
 		//@Return 
 		//@Description Sets fInX. If `true`, the `XoffChar` character is sent when the input buffer comes within `XoffLim` bytes of being full, and the `XonChar` character is sent when the input buffer comes within `XonLim` bytes of being empty. Defualt: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -732,13 +737,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fErrorChar: bool
 		//@Return 
 		//@Description Sets fErrorChar. If `true` and `fParity` is true, bytes received with parity errors are replaced with `ErrorChar`. Defualt: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -750,13 +755,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fNull: bool
 		//@Return 
 		//@Description Sets fNull. If `true`, null bytes are discarded when received. Defualt: `false.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -768,15 +773,15 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fRtsControl: 0 | 1 | 2 | 3
 		//@Return 
 		//@Description Sets fRtsControl. If `0`, the Request-To-Send line is disabled. If `1`, the RTS line is opened and left on. If `2`, RTS handshaking is enabled - the drived raises the RTS line when the input buffer is less than one half full and lowers the RTS line when the buffer is more than three quarters full, and it is an error to adjust the RTS line. If `3`, the RTS line will be high if bytes are available for transmission, and after all buffered bytes have been sent, the RTS line will be low. Default: `1`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		int val;
-		if (argv[1] == "0") val = 0;
-		else if (argv[1] == "1") val = 1;
-		else if (argv[1] == "2") val = 2;
-		else if (argv[1] == "3") val = 3;
+		if (argv[0] == "0") val = 0;
+		else if (argv[0] == "1") val = 1;
+		else if (argv[0] == "2") val = 2;
+		else if (argv[0] == "3") val = 3;
 		else {
 			ans << "Expected 0, 1, 2, or 3";
 			goto end;
@@ -788,13 +793,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args fAbortOnError: bool
 		//@Return 
 		//@Description Sets fAbortOnError. If `true`, the driver terminates all read and write operations with an error status if an error occurs. The driver will not accept any further communications until the extension clears the error (currently not implemented). Default: `false`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		bool val;
-		if (argv[1] == "true" || argv[1] == "1") val = true;
-		else if (argv[1] == "false" || argv[1] == "0") val = false;
+		if (argv[0] == "true" || argv[0] == "1") val = true;
+		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
 			goto end;
@@ -806,12 +811,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args XonLim: int
 		//@Return 
 		//@Description Sets XonLim. See `fInX`, `fRtsControl`, and `fDtrControl`. Default: `2048`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setXonLim(val, ans);
 		}
 		catch (std::exception e) {
@@ -823,12 +828,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args XoffLim: int
 		//@Return 
 		//@Description Sets XoffLim. See `fInX`, `fRtsControl`, and `fDtrControl`. Default: `512`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setXoffLim(val, ans);
 		}
 		catch (std::exception e) {
@@ -840,12 +845,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args XonChar: int
 		//@Return 
 		//@Description Sets XonChar. XonChar is an integer ASCII code, e.g. `65` for "A". Default: `17` (device control 1).
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setXonChar(val, ans);
 		}
 		catch (std::exception e) {
@@ -857,12 +862,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args XoffChar: int
 		//@Return 
 		//@Description Sets XoffChar. XoffChar is an integer ASCII code, e.g. `65` for "A". Default: `19` (device control 3).
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setXoffChar(val, ans);
 		}
 		catch (std::exception e) {
@@ -874,12 +879,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args ErrorChar: int
 		//@Return 
 		//@Description Sets ErrorChar. ErrorChar is an integer ASCII code, e.g. `65` for "A". Default: `0`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setErrorChar(val, ans);
 		}
 		catch (std::exception e) {
@@ -891,12 +896,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args EofChar: int
 		//@Return 
 		//@Description Sets EofChar. EofChar is an integer ASCII code, e.g. `65` for "A". The character used to signal the end of data. Default: `0`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setEofChar(val, ans);
 		}
 		catch (std::exception e) {
@@ -908,12 +913,12 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Args EvtChar: int
 		//@Return 
 		//@Description Sets EvtChar. EvtChar is an integer ASCII code, e.g. `65` for "A". The character used to signal an event. Default: `0`.
-		if (argc == 1) {
+		if (argc == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			this->setEvtChar(val, ans);
 		}
 		catch (std::exception e) {
@@ -933,12 +938,11 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Return 
 		//@Description Makes the extension send data read from this port back to Arma when `charToLookFor`, specified as a `char`, is read.
 		//@Description When the character is read, all data up to and **excluding** that character is sent back to Arma via the callback.
-		if (argc == 1 || argv[1].length() == 0) {
+		if (argc == 0 || argv[0].length() == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
-		this->rwHandler->callbackOptions.type = ReadCallbackTypes::ON_CHAR;
-		this->rwHandler->callbackOptions.value.onChar = argv[1][0];
+		this->rwHandler->callbackOnChar(argv[0][0]);
 	}
 	else if (equalsIgnoreCase(function, "callbackOnCharCode")) {
 		//@InstanceCommand serial.callbackOnCharCode
@@ -946,14 +950,13 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Return 
 		//@Description Makes the extension send data read from this port back to Arma when the character described by `charCodeToLookFor`, specified as an ASCII char code e.g. `65` for "A", is read.
 		//@Description When the character is read, all data read since the last callback, up to and **excluding** that character, is sent back to Arma via the callback.
-		if (argc == 1 || argv[1].length() == 0) {
+		if (argc == 0 || argv[0].length() == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
-			this->rwHandler->callbackOptions.type = ReadCallbackTypes::ON_CHAR;
-			this->rwHandler->callbackOptions.value.onChar = (char)val;
+			int val = std::stoi(argv[0]);
+			this->rwHandler->callbackOnChar((char)val);
 		}
 		catch (std::exception e) {
 			ans << "Exception parsing input: " << e.what();
@@ -965,18 +968,17 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Return 
 		//@Description Makes the extension send data read from this port back to Arma when the total amount of data read reaches `lengthToStopAt` characters long.
 		//@Description When the target amount of data is read, all data read since the last callback is sent back to Arma via the callback.
-		if (argc == 1 || argv[1].length() == 0) {
+		if (argc == 0 || argv[0].length() == 0) {
 			ans << "Additional argument required";
 			goto end;
 		}
 		try {
-			int val = std::stoi(argv[1]);
+			int val = std::stoi(argv[0]);
 			if (val < 1) {
 				ans << "Length must be at least 1";
 				goto end;
 			}
-			this->rwHandler->callbackOptions.type = ReadCallbackTypes::ON_LENGTH;
-			this->rwHandler->callbackOptions.value.onLength = val;
+			this->rwHandler->callbackOnLength(val);
 		}
 		catch (std::exception e) {
 			ans << "Exception parsing input: " << e.what();
@@ -1005,12 +1007,16 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		this->disconnect(ans);
 	}
 	else if (equalsIgnoreCase(function, "write")) {
+		if (argc == 0) {
+			ans << "Additional argument required";
+			goto end;
+		}
 		//@InstanceCommand serial.write
 		//@Args data: string
 		//@Return A success or failure message
 		//@Description Attempts to either write the data to the serial port if threaded writes are disabled, or queue the data to be written if threaded writes are enabled.
 		//@Description If threaded writes are enabled, this command's return value does not say whether the data has successfully been *written*, only that it has been *queued*.
-		this->write(argv[1], ans);
+		this->write(argv[0], ans);
 	}
 	else {
 		ans << "Unrecognized serial port instance command \"" << function << "\"";
@@ -1019,7 +1025,7 @@ end:
 	return;
 }
 
-void SerialPort::runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& ans, std::map<std::string, ICommunicationMethod*>& commMethods, ArmaCallback* callback)
+void SerialPort::runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& ans)
 {
 	//used for QueryDosDevice
 	char pathBuffer[800];
@@ -1042,7 +1048,7 @@ void SerialPort::runStaticCommand(std::string function, std::string* argv, int a
 			return;
 		}
 		if (serialPorts.count(argv[1]) == 0) {
-			port = new SerialPort(argv[1], callback);
+			port = new SerialPort(argv[1]);
 			serialPorts[argv[1]] = port;
 			commMethods[port->getID()] = port;
 		}

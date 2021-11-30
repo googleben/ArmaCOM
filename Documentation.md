@@ -83,3 +83,31 @@ Those familiar with object-oriented programming should think of them as instance
 | `setXonChar` | `XonChar`: `int` | None | `"ArmaCOM" callExtension [myInstanceUUID, ["setXonChar", XonChar]];` | Sets XonChar. XonChar is an integer ASCII code, e.g. `65` for "A". Default: `17` (device control 1). |
 | `setXonLim` | `XonLim`: `int` | None | `"ArmaCOM" callExtension [myInstanceUUID, ["setXonLim", XonLim]];` | Sets XonLim. See `fInX`, `fRtsControl`, and `fDtrControl`. Default: `2048`. |
 | `write` | `data`: `string` | A success or failure message | `"ArmaCOM" callExtension [myInstanceUUID, ["write", data]];` | Attempts to either write the data to the serial port if threaded writes are disabled, or queue the data to be written if threaded writes are enabled. If threaded writes are enabled, this command's return value does not say whether the data has successfully been *written*, only that it has been *queued*. |
+
+# Communication Method: TCPClient
+
+This communication method is an interface for a TCP client. It is capable of asynchronous operations and should be able to connect given any valid IP endpoint locator, including domains (e.g. "google.com", "github.com/googleben") and IP addresses (e.g. "127.0.0.1", "1.1.1.1"). Synchronous versions of operations are included, but I strongly recommend using the asynchronous versions unless you really need the output without getting it from a callback.
+
+## Static Commands
+
+These commands must be called with the format `"ArmaCOM" callExtension ["name of the communication method", ["command name", [arg1, arg2, ...]]`.
+Those familiar with object-oriented programming should think of them as static methods on the communication method's class.
+
+| Name | Arguments | Return Value | SQF Example | Comments |
+| ---  | ---       | ---          | ---         | ---      |
+| `create` | `endpoint`: `string`, `port`: `string` | A success or failure message | `"ArmaCOM" callExtension ["TCPClient", ["create", endpoint, port]];` | Creates an instance of this communication method and returns a UUID representing it. This command does not attempt to connect to the given endpoint; the `connect` command must be called separately. `endpoint` should be a valid, resolvable IP endpoint, consisting of first either a domain or an IP. Examples of valid endpoints: `127.0.0.1`, `example.com` |
+| `listInstances` | None | A list of instances of this communication method in the format [[UUID: string, endpoint: string], ...] | `"ArmaCOM" callExtension ["TCPClient", ["listInstances"]];` | Lists extant instances of the tcpClient communication method and their UUIDs so users have a hope of recovering their instance if they lose the UUID. Remember to use `parseSimpleArray` since extensions can only communicate using strings. |
+## Instance Commands
+
+These commands must be called with the format `"ArmaCOM" callExtension [myInstanceUUID, ["command name", [arg1, arg2, ...]]`.
+Those familiar with object-oriented programming should think of them as instance methods on your instance of the communication method's class.
+
+| Name | Arguments | Return Value | SQF Example | Comments |
+| ---  | ---       | ---          | ---         | ---      |
+| `callbackOnChar` | `charToLookFor`: `char` | None | `"ArmaCOM" callExtension [myInstanceUUID, ["callbackOnChar", charToLookFor]];` | Makes the extension send data read from this port back to Arma when `charToLookFor`, specified as a `char`, is read. When the character is read, all data up to and **excluding** that character is sent back to Arma via the callback. |
+| `callbackOnCharCode` | `charCodeToLookFor`: `int` | None | `"ArmaCOM" callExtension [myInstanceUUID, ["callbackOnCharCode", charCodeToLookFor]];` | Makes the extension send data read from this port back to Arma when the character described by `charCodeToLookFor`, specified as an ASCII char code e.g. `65` for "A", is read. When the character is read, all data read since the last callback, up to and **excluding** that character, is sent back to Arma via the callback. |
+| `callbackOnLength` | `lengthToStopAt`: `int` | None | `"ArmaCOM" callExtension [myInstanceUUID, ["callbackOnLength", lengthToStopAt]];` | Makes the extension send data read from this port back to Arma when the total amount of data read reaches `lengthToStopAt` characters long. When the target amount of data is read, all data read since the last callback is sent back to Arma via the callback. |
+| `connect` | None | A success or failure message | `"ArmaCOM" callExtension [myInstanceUUID, ["connect"]];` | Attempts to connect to the endpoint described by this instance. Warning: This command will not return until either a connection is made or the socket times out. This will probably take a long time (at least 2 seconds) to happen, and the SQF VM will be stalled until that happens. |
+| `connectAsync` | None | None | `"ArmaCOM" callExtension [myInstanceUUID, ["connectAsync"]];` | Attempts to connect to the endpoint described by this instance asynchronously. On success or failure, the extension will call the callback with the message being the instance UUID and the data being an array with a success or failure message. |
+| `disconnect` | None | A success or failure message | `"ArmaCOM" callExtension [myInstanceUUID, ["disconnect"]];` | Attempts to disconnect from the TCP server described by this instance. Any queued asynchronous operations will be canceled. |
+| `write` | `message`: `string` | Success or failure message | `"ArmaCOM" callExtension [myInstanceUUID, ["write", message]];` | Attempts to send `message` |

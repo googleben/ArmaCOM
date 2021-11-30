@@ -8,7 +8,9 @@
 #include <atomic>
 #include "BufferedWrite.h"
 
-template<class T>
+extern ArmaCallback callback;
+
+template<class HandleType>
 class ReadWriteHandler
 {
 private:
@@ -31,34 +33,36 @@ private:
 	BufferedWrite* lastWrite = nullptr;
 
 	//the file handle to the serial port
-	T* handle;
+	HandleType* handle;
 	//the communication method that owns this handler (so we can get its id)
 	ICommunicationMethod* commMethod;
 
 	//mutex which must be held to write to the serial port
 	std::mutex writeMutex;
 	//writes a string to the handle
-	std::function<bool(T*, char*, DWORD, DWORD*)> writeString;
+	std::function<bool(HandleType*, char*, DWORD, DWORD*)> writeString;
 	//reads one char from the handle
-	std::function<bool(T*, char*)> readOneChar;
+	std::function<bool(HandleType*, char*)> readOneChar;
 
 	//whether a read thread should be used
 	bool useReadThread;
 	//whether a write thread should be used
 	bool useWriteThread;
 
-	ArmaCallback* callback;
-	
+	std::mutex callbackOptionsMutex;
+	//must be used only when callbackOptionsMutex is held because it's likely reads and writes will be
+	//both staggered (e.g. reading one field then the other) and, in the case of a single copy of the
+	//whole struct, non-atomic
+	//should only be used directly in its getter and setter
+	ReadCallbackOptions callbackOptions;
 
 public:
-	ReadCallbackOptions callbackOptions;
-	ReadWriteHandler(T* handle, ICommunicationMethod* commMethod, std::function<bool(T*, char*, DWORD, DWORD*)> writeString,
-		std::function<bool(T*, char*)> readOneChar, ArmaCallback* callback, bool useReadThread, bool useWriteThread) {
+	ReadWriteHandler(HandleType* handle, ICommunicationMethod* commMethod, std::function<bool(HandleType*, char*, DWORD, DWORD*)> writeString,
+		std::function<bool(HandleType*, char*)> readOneChar, bool useReadThread, bool useWriteThread) {
 		this->handle = handle;
 		this->commMethod = commMethod;
 		this->writeString = writeString;
 		this->readOneChar = readOneChar;
-		this->callback = callback;
 		this->useReadThread = useReadThread;
 		this->useWriteThread = useWriteThread;
 		this->lastWrite = this->toWrite = new BufferedWrite(nullptr, 0);
@@ -93,15 +97,38 @@ public:
 		if (useReadThread) {
 			std::unique_lock<std::mutex> lock(readThreadMutex);
 			this->usingReadThread = true;
-			readThread = new std::thread([](ReadWriteHandler<T>* rwh) { rwh->readThreadFunction(); }, this);
+			readThread = new std::thread([](ReadWriteHandler<HandleType>* rwh) { rwh->readThreadFunction(); }, this);
 			
 		}
 		if (useWriteThread) {
 			std::unique_lock<std::mutex> lock(this->writeThreadMutex);
 			this->usingWriteThread = true;
-			writeThread = new std::thread([](ReadWriteHandler<T>* rwh) { rwh->writeThreadFunction(); }, this);
+			writeThread = new std::thread([](ReadWriteHandler<HandleType>* rwh) { rwh->writeThreadFunction(); }, this);
 			
 		}
+	}
+	void setCallbackOptions(ReadCallbackOptions val) {
+		callbackOptionsMutex.lock();
+		this->callbackOptions = val;
+		callbackOptionsMutex.unlock();
+	}
+	void callbackOnLength(int length) {
+		callbackOptionsMutex.lock();
+		this->callbackOptions.type = ReadCallbackTypes::ON_LENGTH;
+		this->callbackOptions.value.onLength = length;
+		callbackOptionsMutex.unlock();
+	}
+	void callbackOnChar(char c) {
+		callbackOptionsMutex.lock();
+		this->callbackOptions.type = ReadCallbackTypes::ON_CHAR;
+		this->callbackOptions.value.onChar = c;
+		callbackOptionsMutex.unlock();
+	}
+	ReadCallbackOptions getCallbackOptions() {
+		callbackOptionsMutex.lock();
+		auto ans = this->callbackOptions;
+		callbackOptionsMutex.unlock();
+		return ans;
 	}
 	void enableWriteThread(std::stringstream& out) {
 		this->useWriteThread = true;
@@ -111,7 +138,7 @@ public:
 			return;
 		}
 		usingWriteThread = true;
-		writeThread = new std::thread([](ReadWriteHandler<T>* rwh) { rwh->writeThreadFunction(); }, this);
+		writeThread = new std::thread([](ReadWriteHandler<HandleType>* rwh) { rwh->writeThreadFunction(); }, this);
 		out << "Write thread activated";
 	}
 	void disableWriteThread(std::stringstream& out) {
@@ -143,36 +170,85 @@ public:
 		for (int i = 0; i < 101; i++) buffd[i] = nullptr;
 		int ind = 0;
 		int charsRead = 0;
+		ReadCallbackOptions prevOptions = getCallbackOptions();
+		std::function<void(std::string, std::string)> send = [&](std::string id, std::string str) {
+			if (buffd[ind] != nullptr) delete (buffd[ind]);
+			buffd[ind] = new std::string("[\"" + id + "\", \"" + str + "\"]");
+			std::string* ans = buffd[ind++];
+			if (ind == 101) ind = 0;
+			//callback should never be nullptr at this point. if it is, something
+			//has gone seriously wrong
+			while (callback("ArmaCOM", "data_read", ans->c_str()) == -1) {
+				//if the callback returns -1, the game's buffer for callback data is full,
+				//so we have to wait until that's cleared. Which may be never.
+				//Oh well.
+				Sleep(1);
+			}
+		};
 		while (true) {
+			auto cbo = getCallbackOptions();
+			//if callbackOptions has changed, make sure the existing buffer doesn't have data that should
+			//be sent to Arma by the rules of the new callbackOptions
+			if (prevOptions != cbo) {
+				if (cbo.type == ReadCallbackTypes::ON_CHAR) {
+					char cbOn = cbo.value.onChar;
+					auto str = line.str();
+					auto it = str.begin();
+					auto end = str.end();
+					line.str("");
+					charsRead = 0;
+					for (; it < end; it++) {
+						if (*it == cbOn) {
+							send(commMethod->getID(), line.str());
+							line.str("");
+							charsRead = 0;
+						}
+						else {
+							line << *it;
+							charsRead++;
+						}
+					}
+				}
+				else if (cbo.type == ReadCallbackTypes::ON_LENGTH) {
+					auto cbOn = cbo.value.onLength;
+					if (charsRead >= cbOn) {
+						auto str = line.str();
+						line.str("");
+						for (size_t i = 0; i <= charsRead - cbOn; i += cbOn) {
+							send(commMethod->getID(), str.substr(i, cbOn));
+						}
+						auto leftover = charsRead % cbOn;
+						if (leftover == 0) {
+							charsRead = 0;
+						}
+						else {
+							line << str.substr(charsRead - leftover, leftover);
+							charsRead = leftover;
+						}
+					}
+				}
+				else {
+					throw "Unimplemented ReadCallbackType in ReadWriteHandler read thread";
+				}
+			}
+			prevOptions = cbo;
 			//this may fail but there's nothing we can really do, so....
 			if (readOk = this->readOneChar(this->handle, readChar)) {
-				if (this->callbackOptions.type != ReadCallbackTypes::ON_CHAR || readChar[0] != this->callbackOptions.value.onChar) {
+				if (cbo.type != ReadCallbackTypes::ON_CHAR || readChar[0] != cbo.value.onChar) {
 					line << readChar[0];
 					charsRead++;
 				}
 			}
-			//if (readOk && readChar[0] == '\n') {
 			bool shouldCallback = false;
 			if (this->callbackOptions.type == ReadCallbackTypes::ON_CHAR && readOk) {
-				shouldCallback = readChar[0] == this->callbackOptions.value.onChar;
+				shouldCallback = readChar[0] == cbo.value.onChar;
 			}
 			else if (this->callbackOptions.type == ReadCallbackTypes::ON_LENGTH) {
-				shouldCallback = (charsRead >= this->callbackOptions.value.onLength);
+				shouldCallback = (charsRead >= cbo.value.onLength);
 			}
 			if (shouldCallback) {
-				if (buffd[ind] != nullptr) delete (buffd[ind]);
-				buffd[ind] = new std::string("[\"" + commMethod->getID() + "\", \"" + line.str() + "\"]");
-				std::string* ans = buffd[ind++];
-				if (ind == 101) ind = 0;
-				line.str(std::string());
-				//callback should never be nullptr at this point. if it is, something
-				//has gone seriously wrong
-				while ((*callback)("ArmaCOM", "data_read", ans->c_str()) == -1) {
-					//if the callback returns -1, the game's buffer for callback data is full,
-					//so we have to wait until that's cleared. Which may be never.
-					//Oh well.
-					Sleep(1);
-				}
+				send(commMethod->getID(), line.str());
+				line.str("");
 				charsRead = 0;
 			}
 			if (!usingReadThread.load()) return;

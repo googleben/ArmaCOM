@@ -97,7 +97,7 @@ namespace DocumentationGenerator
                         if (!commMethods.ContainsKey(commMethodName.ToLower())) {
                             commMethods.Add(commMethodName.ToLower(), new CommMethod(commMethodName, "STUB DESC"));
                         }
-                        commMethods[commMethodName].staticCommands.Add(command);
+                        commMethods[commMethodName.ToLower()].staticCommands.Add(command);
                     }
                 }
                 foreach (Match match in instanceCommandRegex.Matches(contents)) {
@@ -126,7 +126,7 @@ namespace DocumentationGenerator
                         if (!commMethods.ContainsKey(commMethodName.ToLower())) {
                             commMethods.Add(commMethodName.ToLower(), new CommMethod(commMethodName, "STUB DESC"));
                         }
-                        commMethods[commMethodName].instanceCommands.Add(command);
+                        commMethods[commMethodName.ToLower()].instanceCommands.Add(command);
                     }
                 }
             }

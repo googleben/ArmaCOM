@@ -1,5 +1,6 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
-#include "pch.h"
+#pragma comment( lib, "rpcrt4.lib" )
+#include "boost/asio.hpp"
 //TODO: add data bits
 //TODO: make changes to settings affect opened ports
 #include <iostream>
@@ -12,9 +13,13 @@
 #include "serial.h"
 #include "util.h"
 #include "framework.h"
+#include "tcp.h"
+
+
+boost::asio::io_context ioContext;
 
 //the callback function Arma gives us
-static ArmaCallback callback = nullptr;
+ArmaCallback callback = nullptr;
 
 //maps port names to SerialPorts to allow multiple simultaneous connections
 std::map<std::string, ICommunicationMethod*> commMethods;
@@ -48,13 +53,15 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 			return ch != '"';
 		}).base(), tmp.end());
 	}
-	
 
 	//i'm kind of playing with fire here using GOTOs (especially in threaded code)
 	//but this is side-project code that doesn't really matter so it's the nicest-looking
 	//way to handle this stuff without more complexity. much better than nesting several ifs deep.
 	if (equalsIgnoreCase(function, "serial")) {
-		SerialPort::runStaticCommand(function, argv, argc, ans, commMethods, &callback);
+		SerialPort::runStaticCommand(function, argv, argc, ans);
+	}
+	else if (equalsIgnoreCase(function, "tcpclient")) {
+		TcpClient::runStaticCommand(function, argv, argc, ans);
 	}
 	else if (equalsIgnoreCase(function, "destroy")) {
 		//@GlobalCommand destroy
@@ -75,6 +82,10 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 			ans << "You must disconnect before destroying";
 			goto end;
 		}
+		if (!commMethod->destroy()) {
+			ans << "Comm method could not be destroyed. Ensure no operations are pending and the method is not connected.";
+			goto end;
+		}
 		commMethods.erase(function2);
 		delete commMethod;
 		ans << "Instance destroyed";
@@ -82,10 +93,10 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 	else {
 		if (commMethods.count(function) != 0) {
 			auto commMethod = commMethods[function];
-			commMethod->runInstanceCommand(function, argv, argc, ans, commMethods);
+			commMethod->runInstanceCommand(function, argv, argc, ans);
 		}
 		else {
-			ans << "Unrecognized function";
+			ans << "Unrecognized function: " << function;
 		}
 	}
 

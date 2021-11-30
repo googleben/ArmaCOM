@@ -100,4 +100,22 @@ I included the option to handle writing to the serial port on a separate thread 
 
 ### On hotswapping
 
-Plugging in/unplugging a serial port while Arma is running *should* work fine, **unless the extension is currently connected to that serial port**, in which case I've got no idea what kinds of things could go wrong. 
+Plugging in/unplugging a serial port while Arma is running *should* work fine, **unless the extension is currently connected to that serial port**, in which case I've got no idea what kinds of things could go wrong.
+
+## Development & Maintenance
+
+### Building ArmaCOM
+
+Besides downloading the project and opening the solution in Visual Studio (I'm using VS 2019 currently, version 16.11.15), the project depends on [Boost](https://www.boost.org/). I'm currently using version 1.77.0. If you don't have it already, download Boost, extract it, and create an environment variable named `BOOST_HOME` that points to the base folder (the one that contains `README.md`, `boost.png`, `bootstrap.bat`, and other stuff). Make sure you restart Visual Studio if you had it open before you created the environment variable. ArmaCOM currently uses only header-only Boost libraries, so there's no need to compile anything to get Boost working. 
+
+As an alternative to creating an environment variable, you can point VC++ directly to your Boost folder: in the Solution Explorer, right click "ArmaCOM", click "Properties", and on the left open "Configuration Properties -> C/C++ -> General". Edit "Additional Include Directories" and replace `$(BOOST_HOME)` with the path to your Boost installation. If you do this and submit a contribution, please make sure you don't include this change so the project is kept machine-agnostic.
+
+Once you have Boost set up correctly, Visual Studio should be able to build ArmaCOM normally, through "Build -> Build Solution". ArmaCOM is not set up to be 32-bit compatible, so while the extension should build for 32-bit targets, it won't work without code changes. I recommend you set your build target to Release x64.
+
+### Generating documentation
+
+I wrote a simple documentation generator to pull in-line documentation from C++ comments and generate `Documentation.md`. The program is a small C# VS solution in the `DocumentationGenerator` folder. You should be able to just run it straight from Visual Studio. It's not particularly robust, but as well as the doc comments are well-formed it should work just fine. It's also written using a lot of regex (which I might change to a real parsing solution at some point but probably not), so programmers beware. If the program is run and doesn't error out it should just overwrite `Documentation.md` with the newest information.
+
+### Running tests
+
+I've written a test suite with reasonable coverage in the `ArmaCOMTests` subfolder. The tests are in pure C# and don't require Arma to run since I'm using C#'s ability to interface with native code, inspired by [Killzone_Kid](http://killzonekid.com)'s work and based on the helpful [maca134's ExtensionTesterConsole](https://github.com/maca134/Maca134.Arma.ExtensionTesterConsole). Follow the instructions in `ArmaCOMTests\README.md` to run the tests.

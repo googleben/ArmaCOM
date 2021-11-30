@@ -60,7 +60,7 @@ private:
 	ReadWriteHandler<HANDLE>* rwHandler;
 
 public:
-	SerialPort(std::string portName, ArmaCallback* callback);
+	SerialPort(std::string portName);
 
 	bool isConnected() {
 		return serialPort != nullptr;
@@ -86,8 +86,9 @@ public:
 	//prints error/success messages to `out`. can not detect whether a threaded write failed.
 	void write(std::string data, std::stringstream& out);
 
-	void runInstanceCommand(std::string function, std::string* argv, int argc, std::stringstream& out, std::map<std::string, ICommunicationMethod*>& commMethds);
-	static void runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& out, std::map<std::string, ICommunicationMethod*>& commMethods, ArmaCallback* callback);
+	void runInstanceCommand(std::string function, std::string* argv, int argc, std::stringstream& ans);
+	bool destroy();
+	static void runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& ans);
 	std::string getID();
 
 	std::string& getPortName() {
