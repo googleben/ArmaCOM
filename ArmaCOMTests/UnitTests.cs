@@ -11,6 +11,7 @@ using System.Text;
 using NUnit.Framework;
 using System.Net.Sockets;
 using System.Net;
+using System.Diagnostics;
 
 namespace ArmaCOMTests
 {
@@ -135,11 +136,55 @@ namespace ArmaCOMTests
             Assert.That(ports, Is.EquivalentTo(actualPorts));
         }
         
+        private void TestIndexedGetSet(string listCommand, string getCommand, string setCommand, string name)
+        {
+            string port = extension.CallArgs("serial", "create", Settings.THEIR_PORT);
+            string listStr = extension.CallArgs("serial", listCommand);
+            List<(int, string)> list = Utils.ParseArmaArray(listStr).Select(
+                (l) => ((int) (float)(((List<object>)l)[0]), ((List<object>)l)[1].ToString())
+            ).ToList();
+            //test each valid value
+            foreach ((int i, string s) in list) {
+                List<object> setAns = Utils.ParseArmaArray(extension.CallArgs(port, setCommand, i.ToString()));
+                Assert.AreEqual("SUCCESS", setAns[0]);
+                Assert.AreEqual($"Set {name} to index {i} (value: {s})", setAns[1]);
+                string get = extension.CallArgs(port, getCommand + "Index");
+                Assert.AreEqual(i.ToString(), get);
+                string getVal = extension.CallArgs(port, getCommand + "Value");
+                Assert.AreEqual(s, getVal);
+            }
+            //test missing argument
+            List<object> ans = Utils.ParseArmaArray(extension.CallArgs(port, setCommand));
+            Assert.AreEqual("FAILURE", ans[0]);
+            Assert.AreEqual("Additional argument required", ans[1]);
+            //test out of range arguments
+            int[] intsToTest = { -1, list.Count, list.Count + 1, int.MaxValue, int.MinValue };
+            foreach (int i in intsToTest) {
+                ans = Utils.ParseArmaArray(extension.CallArgs(port, setCommand, i.ToString()));
+                Assert.AreEqual("FAILURE", ans[0]);
+                Assert.AreEqual($"New {name} out of range", ans[1]);
+            }
+            //test unparseable arguments
+            string[] strsToTest = { "", "Hello", "one", "123456789123456789"};
+            foreach (string s in strsToTest) {
+                ans = Utils.ParseArmaArray(extension.CallArgs(port, setCommand, s));
+                Assert.AreEqual("FAILURE", ans[0]);
+                Assert.IsTrue(((string)ans[1]).StartsWith("Exception parsing input: "));
+            }
+            extension.CallArgs("destroy", port);
+        }
+
         [Test]
         public void ListBaudRates()
         {
             const string expected = "[[0, 110], [1, 300], [2, 600], [3, 1200], [4, 2400], [5, 4800], [6, 9600], [7, 14400], [8, 19200], [9, 38400], [10, 57600], [11, 115200], [12, 128000], [13, 256000]]";
             Assert.AreEqual(expected, extension.CallArgs("serial", "listBaudRates"));
+        }
+
+        [Test]
+        public void GetSetBaudRate()
+        {
+            TestIndexedGetSet("listBaudRates", "getBaudRate", "setBaudRate", "baud rate");
         }
 
         [Test]
@@ -150,6 +195,12 @@ namespace ArmaCOMTests
         }
 
         [Test]
+        public void GetSetStopBits()
+        {
+            TestIndexedGetSet("listStopBits", "getStopBits", "setStopBits", "stop bits");
+        }
+
+        [Test]
         public void ListParities()
         {
             const string expected = "[[0, \"No parity\"], [1, \"Odd parity\"], [2, \"Even parity\"], [3, \"Mark parity\"], [4, \"Space parity\"]]";
@@ -157,10 +208,22 @@ namespace ArmaCOMTests
         }
 
         [Test]
+        public void GetSetParities()
+        {
+            TestIndexedGetSet("listParities", "getParity", "setParity", "parity");
+        }
+
+        [Test]
         public void ListDataBits()
         {
             const string expected = "[[0, \"4 data bits\"], [1, \"5 data bits\"], [2, \"6 data bits\"], [3, \"7 data bits\"], [4, \"8 data bits\"]]";
             Assert.AreEqual(expected, extension.CallArgs("serial", "listDataBits"));
+        }
+
+        [Test]
+        public void GetSetDataBits()
+        {
+            TestIndexedGetSet("listDataBits", "getDataBits", "setDataBits", "data bits");
         }
 
         [Test]
@@ -173,7 +236,7 @@ namespace ArmaCOMTests
             string instancesAfter = extension.CallArgs("serial", "listInstances");
             Assert.That(instancesBefore, Does.Not.Contain(port));
             Assert.That(instancesAfter, Does.Contain(port));
-            Assert.AreEqual("Instance destroyed", extension.CallArgs("destroy", port));
+            Assert.AreEqual("[\"SUCCESS\", \"Instance destroyed\"]", extension.CallArgs("destroy", port));
             string instancesFinal = extension.CallArgs("serial", "listInstances");
             Assert.That(instancesFinal, Does.Not.Contain(port));
             Thread.Sleep(100);
@@ -467,6 +530,34 @@ namespace ArmaCOMTests
             extension.CallArgs(theirSocket, "callbackOnChar", "4");
             (_, data) = Utils.AwaitWithTimeout(reader.Read());
             Assert.AreEqual("Test", data[1]);
+        }
+
+        [Test, Order(8)]
+        public void AtLeastSixtyHzWrite()
+        {
+            EnsureConnected();
+            //warm up
+            for (int i = 0; i < 20; i++) {
+                string s = (i * 100_000).ToString();
+                extension.CallArgs(theirSocket, "write", s);
+                Assume.That(Read() == s);
+            }
+            //send and recieve 120 messages of 3 integers each
+            double[] sTaken = new double[120];
+            for (int i = 0; i < 120; i++) {
+                string s = (i * 10_000, i * 10_001, i * 10_002).ToString();
+                var stopwatch = Stopwatch.StartNew();
+                extension.CallArgs(theirSocket, "write", s);
+                var read = Read();
+                stopwatch.Stop();
+                Assume.That(read == s);
+                sTaken[i] = stopwatch.Elapsed.TotalMilliseconds / 1000;
+            }
+            TestContext.Out.WriteLine($"Total time: {sTaken.Sum()}, Average time: {sTaken.Sum()/120}, Hertz: {120/sTaken.Sum()}");
+            TestContext.Out.WriteLine($"Max time: {sTaken.Max()}, Min time: {sTaken.Min()}");
+            //must be less than 2 seconds
+            Assert.Less(sTaken.Sum(), 2);
+            
         }
 
         [Test, Order(Int32.MaxValue)]

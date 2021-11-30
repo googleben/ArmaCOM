@@ -78,17 +78,17 @@ public:
 			}
 			lastWrite->cond.notify_all();
 			lastWrite = lastWrite->next;
-			out << "Write successfully queued";
+			sendSuccessArr(out, "Write successfully queued");
 		}
 		else {
 			DWORD written;
 			std::unique_lock<std::mutex> lock(writeMutex);
 			if (!this->writeString(handle, (char*)data.c_str(), (DWORD)data.length(), &written)) {
 				DWORD err = GetLastError();
-				out << "Error while writing: " << formatErr(err);
+				sendFailureArr(out, "Error while writing: " + formatErr(err));
 			}
 			else {
-				out << "Successfully wrote " << written << " bytes";
+				sendSuccessArr(out, "Successfully wrote " + std::to_string(written) + " bytes");
 			}
 		}
 	}
@@ -134,12 +134,12 @@ public:
 		this->useWriteThread = true;
 		std::unique_lock<std::mutex> lock(this->writeThreadMutex);
 		if (usingWriteThread.load()) {
-			out << "Already using write thread";
+			sendFailureArr(out, "Already using write thread");
 			return;
 		}
 		usingWriteThread = true;
 		writeThread = new std::thread([](ReadWriteHandler<HandleType>* rwh) { rwh->writeThreadFunction(); }, this);
-		out << "Write thread activated";
+		sendSuccessArr(out, "Write thread activated");
 	}
 	void disableWriteThread(std::stringstream& out) {
 		{
@@ -147,7 +147,7 @@ public:
 			this->usingWriteThread = false;
 		}
 		this->writeThread->join();
-		out << "Successfully terminated write thread";
+		sendSuccessArr(out, "Successfully terminated write thread");
 		delete this->writeThread;
 		this->writeThread = nullptr;
 	}
@@ -169,7 +169,7 @@ public:
 		std::string* buffd[101];
 		for (int i = 0; i < 101; i++) buffd[i] = nullptr;
 		int ind = 0;
-		int charsRead = 0;
+		size_t charsRead = 0;
 		ReadCallbackOptions prevOptions = getCallbackOptions();
 		std::function<void(std::string, std::string)> send = [&](std::string id, std::string str) {
 			if (buffd[ind] != nullptr) delete (buffd[ind]);

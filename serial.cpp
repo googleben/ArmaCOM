@@ -138,10 +138,10 @@ void SerialPort::disconnect(std::stringstream& out) {
 	this->rwHandler->stopThreads();
 	if (!CloseHandle(serialPort)) {
 		DWORD err = GetLastError();
-		out << "Error while disconnecting: " << formatErr(err);
+		sendFailureArr(out, "Error while disconnecting" + formatErr(err));
 	}
 	else {
-		out << "Disconnected successfully";
+		sendSuccessArr(out, "Disconnected successfully");
 	}
 	serialPort = nullptr;
 }
@@ -162,49 +162,53 @@ void SerialPort::write(std::string data, std::stringstream& out) {
 
 void SerialPort::setBaudRate(int newBaudRate, std::stringstream& out) {
 	if (newBaudRate < 0 || newBaudRate >= numRates) {
-		out << "New baud rate out of range";
+		sendFailureArr(out, "New baud rate out of range");
 	}
 	else {
 		baudRate = newBaudRate;
 		if (isConnected()) {
 			setParams(out);
 		}
+		sendSuccessArr(out, "Set baud rate to index " + std::to_string(newBaudRate) + " (value: " + std::to_string(baudRates[newBaudRate]) + ")");
 	}
 }
 
 void SerialPort::setParity(int newParity, std::stringstream& out) {
 	if (newParity < 0 || newParity >= numParities) {
-		out << "New parity out of range";
+		sendFailureArr(out, "New parity out of range");
 	}
 	else {
 		parity = newParity;
 		if (isConnected()) {
 			setParams(out);
 		}
+		sendSuccessArr(out, "Set parity to index " + std::to_string(newParity) + " (value: " + parityNames[newParity] + ")");
 	}
 }
 
 void SerialPort::setStopBits(int newStopBits, std::stringstream& out) {
 	if (newStopBits < 0 || newStopBits >= numStopBits) {
-		out << "New stop bits out of range";
+		sendFailureArr(out, "New stop bits out of range");
 	}
 	else {
 		stopBits = newStopBits;
 		if (isConnected()) {
 			setParams(out);
 		}
+		sendSuccessArr(out, "Set stop bits to index " + std::to_string(newStopBits) + " (value: " + stopBitNames[newStopBits] + ")");
 	}
 }
 
 void SerialPort::setDataBits(int newDataBits, std::stringstream& out) {
 	if (newDataBits < 0 || newDataBits >= numDataBits) {
-		out << "New data bits out of range";
+		sendFailureArr(out, "New data bits out of range");
 	}
 	else {
 		dataBits = newDataBits;
 		if (isConnected()) {
 			setParams(out);
 		}
+		sendSuccessArr(out, "Set data bits to index " + std::to_string(newDataBits) + " (value: " + dataBitNames[newDataBits] + ")");
 	}
 }
 
@@ -213,6 +217,7 @@ void SerialPort::setFParity(bool newFParity, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fParity to " + std::to_string(newFParity));
 }
 
 void SerialPort::setFOutxCtsFlow(bool newFOutxCtsFlow, std::stringstream& out) {
@@ -220,6 +225,7 @@ void SerialPort::setFOutxCtsFlow(bool newFOutxCtsFlow, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fOutxCtsFlow to " + std::to_string(newFOutxCtsFlow));
 }
 
 void SerialPort::setFOutxDsrFlow(bool newFOutxDsrFlow, std::stringstream& out) {
@@ -227,6 +233,7 @@ void SerialPort::setFOutxDsrFlow(bool newFOutxDsrFlow, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fOutxDsrFlow to " + std::to_string(newFOutxDsrFlow));
 }
 
 void SerialPort::setFDtrControl(int newFDtrControl, std::stringstream& out) {
@@ -234,6 +241,7 @@ void SerialPort::setFDtrControl(int newFDtrControl, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fDtrControl to " + std::to_string(newFDtrControl));
 }
 
 void SerialPort::setFDsrSensitivity(bool newFDsrSensitivity, std::stringstream& out) {
@@ -241,6 +249,7 @@ void SerialPort::setFDsrSensitivity(bool newFDsrSensitivity, std::stringstream& 
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fDsrSensitivity to " + std::to_string(newFDsrSensitivity));
 }
 
 void SerialPort::setFTXContinueOnXoff(bool newFTXContinueOnXoff, std::stringstream& out) {
@@ -248,6 +257,7 @@ void SerialPort::setFTXContinueOnXoff(bool newFTXContinueOnXoff, std::stringstre
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fTXContinueOnXoff to " + std::to_string(newFTXContinueOnXoff));
 }
 
 void SerialPort::setFOutX(bool newFOutX, std::stringstream& out) {
@@ -255,6 +265,7 @@ void SerialPort::setFOutX(bool newFOutX, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fOutX to " + std::to_string(newFOutX));
 }
 
 void SerialPort::setFInX(bool newFInX, std::stringstream& out) {
@@ -262,6 +273,7 @@ void SerialPort::setFInX(bool newFInX, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fInX to " + std::to_string(newFInX));
 }
 
 void SerialPort::setFErrorChar(bool newFErrorChar, std::stringstream& out) {
@@ -269,6 +281,7 @@ void SerialPort::setFErrorChar(bool newFErrorChar, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fErrorChar to " + std::to_string(newFErrorChar));
 }
 
 void SerialPort::setFNull(bool newFNull, std::stringstream& out) {
@@ -276,6 +289,7 @@ void SerialPort::setFNull(bool newFNull, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fNull to " + std::to_string(newFNull));
 }
 
 void SerialPort::setFRtsControl(int newFRtsControl, std::stringstream& out) {
@@ -283,6 +297,7 @@ void SerialPort::setFRtsControl(int newFRtsControl, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fRtsControl to " + std::to_string(newFRtsControl));
 }
 
 void SerialPort::setFAbortOnError(bool newFAbortOnError, std::stringstream& out) {
@@ -290,6 +305,7 @@ void SerialPort::setFAbortOnError(bool newFAbortOnError, std::stringstream& out)
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set fAbortOnError to " + std::to_string(newFAbortOnError));
 }
 
 void SerialPort::setXonLim(WORD newXonLim, std::stringstream& out) {
@@ -297,6 +313,7 @@ void SerialPort::setXonLim(WORD newXonLim, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set XonLim to " + std::to_string(newXonLim));
 }
 
 void SerialPort::setXoffLim(WORD newXoffLim, std::stringstream& out) {
@@ -304,6 +321,7 @@ void SerialPort::setXoffLim(WORD newXoffLim, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set XoffLim to " + std::to_string(newXoffLim));
 }
 
 void SerialPort::setXonChar(char newXonChar, std::stringstream& out) {
@@ -311,6 +329,7 @@ void SerialPort::setXonChar(char newXonChar, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set XonChar to char code " + std::to_string((int)newXonChar));
 }
 
 void SerialPort::setXoffChar(char newXoffChar, std::stringstream& out) {
@@ -318,6 +337,7 @@ void SerialPort::setXoffChar(char newXoffChar, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set XoffChar to char code " + std::to_string((int)newXoffChar));
 }
 
 void SerialPort::setErrorChar(char newErrorChar, std::stringstream& out) {
@@ -325,6 +345,7 @@ void SerialPort::setErrorChar(char newErrorChar, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set ErrorChar to char code " + std::to_string((int)newErrorChar));
 }
 
 void SerialPort::setEofChar(char newEofChar, std::stringstream& out) {
@@ -332,6 +353,7 @@ void SerialPort::setEofChar(char newEofChar, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set EofChar to char code " + std::to_string((int)newEofChar));
 }
 
 void SerialPort::setEvtChar(char newEvtChar, std::stringstream& out) {
@@ -339,11 +361,12 @@ void SerialPort::setEvtChar(char newEvtChar, std::stringstream& out) {
 	if (isConnected()) {
 		setParams(out);
 	}
+	sendSuccessArr(out, "Set EvtChar to char code " + std::to_string((int)newEvtChar));
 }
 
 bool SerialPort::destroy() {
 	if (this->connected) return false;
-	serialPorts.erase(this->id);
+	serialPorts.erase(this->portNamePretty);
 	return true;
 }
 
@@ -351,33 +374,61 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 	std::string& function = argv[0];
 	argv++;
 	argc--;
-	if (equalsIgnoreCase(function, "getBaudRate")) {
-		//@InstanceCommand serial.getBaudRate
+	if (equalsIgnoreCase(function, "getBaudRateIndex")) {
+		//@InstanceCommand serial.getBaudRateIndex
 		//@Args 
 		//@Return The index of the currently set baud rate
-		//@Description Gets the index of the set baud rate, not the actual baud rate
+		//@Description Gets the index of the currently set baud rate
 		ans << this->getBaudRate();
 	}
-	else if (equalsIgnoreCase(function, "getParity")) {
-		//@InstanceCommand serial.getParity
+	else if (equalsIgnoreCase(function, "getBaudRateValue")) {
+		//@InstanceCommand serial.getBaudRateValue
+		//@Args 
+		//@Return The currently set baud rate
+		//@Description Gets the currently set baud rate
+		ans << baudRates[this->getBaudRate()];
+	}
+	else if (equalsIgnoreCase(function, "getParityIndex")) {
+		//@InstanceCommand serial.getParityIndex
 		//@Args 
 		//@Return The index of the currently set parity bit(s)
-		//@Description Gets the index of the set parity bit(s), not the actual parity bit(s)
+		//@Description Gets the index of the currently set parity bit(s)
 		ans << this->getParity();
 	}
-	else if (equalsIgnoreCase(function, "getStopBits")) {
-		//@InstanceCommand serial.getStopBits
+	else if (equalsIgnoreCase(function, "getParityValue")) {
+		//@InstanceCommand serial.getParityValue
+		//@Args 
+		//@Return The currently set parity bit(s)
+		//@Description Gets the currently set parity bit(s)
+		ans << parityNames[this->getParity()];
+	}
+	else if (equalsIgnoreCase(function, "getStopBitsIndex")) {
+		//@InstanceCommand serial.getStopBitsIndex
 		//@Args 
 		//@Return The index of the currently set stop bit(s)
-		//@Description Gets the index of the set stop bit(s), not the actual stop bit(s)
+		//@Description Gets the index of the currently set stop bit(s)
 		ans << this->getStopBits();
 	}
-	else if (equalsIgnoreCase(function, "getDataBits")) {
-		//@InstanceCommand serial.getDataBits
+	else if (equalsIgnoreCase(function, "getStopBitsValue")) {
+		//@InstanceCommand serial.getStopBitsValue
+		//@Args 
+		//@Return The currently set stop bit(s)
+		//@Description Gets the currently set stop bit(s)
+		ans << stopBitNames[this->getStopBits()];
+	}
+	else if (equalsIgnoreCase(function, "getDataBitsIndex")) {
+		//@InstanceCommand serial.getDataBitsIndex
 		//@Args 
 		//@Return The index of the currently set data bits
-		//@Description Gets the index of the set data bits, not the actual data bits
+		//@Description Gets the index of the currently set data bits
 		ans << this->getDataBits();
+	}
+	else if (equalsIgnoreCase(function, "getDataBitsValue")) {
+		//@InstanceCommand serial.getDataBitsValue
+		//@Args 
+		//@Return The currently set data bits
+		//@Description Gets the currently set data bits
+		ans << dataBitNames[this->getDataBits()];
 	}
 	else if (equalsIgnoreCase(function, "getFParity")) {
 		//@InstanceCommand serial.getFParity
@@ -509,7 +560,7 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@InstanceCommand serial.getEvtChar
 		//@Args 
 		//@Return The current ASCII charcode of evtChar
-		//@Description he character used to signal an event. Default: `0`.
+		//@Description The character used to signal an event. Default: `0`.
 		ans << this->getEvtChar();
 	}
 	else if (equalsIgnoreCase(function, "isUsingWriteThread")) {
@@ -522,260 +573,260 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 	else if (equalsIgnoreCase(function, "setBaudRate")) {
 		//@InstanceCommand serial.setBaudRate
 		//@Args baudRateIndex: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets the baud rate. `baudRateIndex` is the index of the desired baud rate (from `listBaudRates`).
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setBaudRate(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setParity")) {
 		//@InstanceCommand serial.setParity
 		//@Args parityIndex: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets the parity. `parityIndex` is the index of the desired parity (from `listParities`).
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setParity(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setStopBits")) {
 		//@InstanceCommand serial.setStopBits
 		//@Args stopBitsIndex: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets the stop bit(s). `stopBitsIndex` is the index of the desired stop bit(s) (from `listStopBits`).
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setStopBits(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setDataBits")) {
 		//@InstanceCommand serial.setDataBits
 		//@Args dataBitsIndex: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets the data bits. `dataBitsIndex` is the index of the desired baud rate (from `listDataBits`).
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setDataBits(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setFParity")) {
 		//@InstanceCommand serial.setFParity
 		//@Args fParity: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets `fParity`. If `true`, parity checking is performed. Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
 			ans << "Expected true, false, 1, or 0";
-			goto end;
+			return;
 		}
 		this->setFParity(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFOutxCtsFlow")) {
 		//@InstanceCommand serial.setFOutxCtsFlow
 		//@Args fOutxCtsFlow: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets `fOutxCtsFlow`. If `true`, the Clear-To-Send signal is monitored, and when the CTS is turned off, output is suspended until the CTS is sent again. Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFOutxCtsFlow(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFOutxDsrFlow")) {
 		//@InstanceCommand serial.setFOutxDsrFlow
 		//@Args fOutxDsrFlow: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fOutxDsrFlow. If `true`, the Data-Set-Ready signal is monitored, and when the DSR is turned off, output is suspended until the DSR is sent again. Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFOutxDsrFlow(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFDtrControl")) {
 		//@InstanceCommand serial.setFDtrControl
 		//@Args fDtsControl: 0 | 1 | 2
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fDtrControl. If `0`, the Data-Terminal-Ready line is disabled. If `1`, the DTR line is enabled and left on. If `2`, it is an error to adjust the DTR line. Default: `1`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		int val;
 		if (argv[0] == "0") val = 0;
 		else if (argv[0] == "1") val = 1;
 		else if (argv[0] == "2") val = 2;
 		else {
-			ans << "Expected 0, 1, or 2";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFDtrControl(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFDsrSensitivity")) {
 		//@InstanceCommand serial.setFDsrSensitivity
 		//@Args fDsrSensitivity: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fDsrSensitivity. If `true`, the driver is sensitive to the state of the DSR signal - all recieved bytes will be ignored unless the DSR input line is high. Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFDsrSensitivity(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFTXContinueOnXoff")) {
 		//@InstanceCommand serial.setFTXContinueOnXoff
 		//@Args fTXContinueOnXoff: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fTXContinueOnXoff. If `true`, transmission continues after the input buffer has come within `XoffLim` bytes of being full and the driver has transmitted the `XoffChar` character to stop receiving bytes. If `false`, transmission does not continue until the input buffer is within `XonLim` bytes of being empty and the driver has transmitted the `XonChar` character to resume reception. Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFTXContinueOnXoff(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFOutX")) {
 		//@InstanceCommand serial.setFOutX
 		//@Args fOutX: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fOutX. If `true`, transmission stops when the `XoffChar` character is received and starts again when the `XonChar` character is received. Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFOutX(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFInX")) {
 		//@InstanceCommand serial.setFInX
 		//@Args fInX: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fInX. If `true`, the `XoffChar` character is sent when the input buffer comes within `XoffLim` bytes of being full, and the `XonChar` character is sent when the input buffer comes within `XonLim` bytes of being empty. Defualt: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFInX(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFErrorChar")) {
 		//@InstanceCommand serial.setFErrorChar
 		//@Args fErrorChar: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fErrorChar. If `true` and `fParity` is true, bytes received with parity errors are replaced with `ErrorChar`. Defualt: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFErrorChar(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFNull")) {
 		//@InstanceCommand serial.setFNull
 		//@Args fNull: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fNull. If `true`, null bytes are discarded when received. Defualt: `false.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFNull(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFRtsControl")) {
 		//@InstanceCommand serial.setFRtsControl
 		//@Args fRtsControl: 0 | 1 | 2 | 3
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fRtsControl. If `0`, the Request-To-Send line is disabled. If `1`, the RTS line is opened and left on. If `2`, RTS handshaking is enabled - the drived raises the RTS line when the input buffer is less than one half full and lowers the RTS line when the buffer is more than three quarters full, and it is an error to adjust the RTS line. If `3`, the RTS line will be high if bytes are available for transmission, and after all buffered bytes have been sent, the RTS line will be low. Default: `1`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		int val;
 		if (argv[0] == "0") val = 0;
@@ -783,146 +834,146 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		else if (argv[0] == "2") val = 2;
 		else if (argv[0] == "3") val = 3;
 		else {
-			ans << "Expected 0, 1, 2, or 3";
-			goto end;
+			sendFailureArr(ans, "Expected 0, 1, 2, or 3");
+			return;
 		}
 		this->setFRtsControl(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setFAbortOnError")) {
 		//@InstanceCommand serial.setFAbortOnError
 		//@Args fAbortOnError: bool
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets fAbortOnError. If `true`, the driver terminates all read and write operations with an error status if an error occurs. The driver will not accept any further communications until the extension clears the error (currently not implemented). Default: `false`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		bool val;
 		if (argv[0] == "true" || argv[0] == "1") val = true;
 		else if (argv[0] == "false" || argv[0] == "0") val = false;
 		else {
-			ans << "Expected true, false, 1, or 0";
-			goto end;
+			sendFailureArr(ans, "Expected true, false, 1, or 0");
+			return;
 		}
 		this->setFAbortOnError(val, ans);
 	}
 	else if (equalsIgnoreCase(function, "setXonLim")) {
 		//@InstanceCommand serial.setXonLim
 		//@Args XonLim: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets XonLim. See `fInX`, `fRtsControl`, and `fDtrControl`. Default: `2048`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setXonLim(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setXoffLim")) {
 		//@InstanceCommand serial.setXoffLim
 		//@Args XoffLim: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets XoffLim. See `fInX`, `fRtsControl`, and `fDtrControl`. Default: `512`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setXoffLim(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setXonChar")) {
 		//@InstanceCommand serial.setXonChar
 		//@Args XonChar: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets XonChar. XonChar is an integer ASCII code, e.g. `65` for "A". Default: `17` (device control 1).
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setXonChar(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setXoffChar")) {
 		//@InstanceCommand serial.setXoffChar
 		//@Args XoffChar: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets XoffChar. XoffChar is an integer ASCII code, e.g. `65` for "A". Default: `19` (device control 3).
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setXoffChar(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setErrorChar")) {
 		//@InstanceCommand serial.setErrorChar
 		//@Args ErrorChar: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets ErrorChar. ErrorChar is an integer ASCII code, e.g. `65` for "A". Default: `0`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setErrorChar(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setEofChar")) {
 		//@InstanceCommand serial.setEofChar
 		//@Args EofChar: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets EofChar. EofChar is an integer ASCII code, e.g. `65` for "A". The character used to signal the end of data. Default: `0`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setEofChar(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "setEvtChar")) {
 		//@InstanceCommand serial.setEvtChar
 		//@Args EvtChar: int
-		//@Return 
+		//@Return A failure or success message
 		//@Description Sets EvtChar. EvtChar is an integer ASCII code, e.g. `65` for "A". The character used to signal an event. Default: `0`.
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->setEvtChar(val, ans);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "enableThreadedWrites")) {
@@ -939,8 +990,8 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Description Makes the extension send data read from this port back to Arma when `charToLookFor`, specified as a `char`, is read.
 		//@Description When the character is read, all data up to and **excluding** that character is sent back to Arma via the callback.
 		if (argc == 0 || argv[0].length() == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		this->rwHandler->callbackOnChar(argv[0][0]);
 	}
@@ -951,15 +1002,15 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Description Makes the extension send data read from this port back to Arma when the character described by `charCodeToLookFor`, specified as an ASCII char code e.g. `65` for "A", is read.
 		//@Description When the character is read, all data read since the last callback, up to and **excluding** that character, is sent back to Arma via the callback.
 		if (argc == 0 || argv[0].length() == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			this->rwHandler->callbackOnChar((char)val);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "callbackOnLength")) {
@@ -969,19 +1020,19 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		//@Description Makes the extension send data read from this port back to Arma when the total amount of data read reaches `lengthToStopAt` characters long.
 		//@Description When the target amount of data is read, all data read since the last callback is sent back to Arma via the callback.
 		if (argc == 0 || argv[0].length() == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			if (val < 1) {
-				ans << "Length must be at least 1";
-				goto end;
+				sendFailureArr(ans, "Length must be at least 1");
+				return;
 			}
 			this->rwHandler->callbackOnLength(val);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "isConnected")) {
@@ -1008,8 +1059,8 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 	}
 	else if (equalsIgnoreCase(function, "write")) {
 		if (argc == 0) {
-			ans << "Additional argument required";
-			goto end;
+			sendFailureArr(ans, "Additional argument required");
+			return;
 		}
 		//@InstanceCommand serial.write
 		//@Args data: string
@@ -1019,10 +1070,8 @@ void SerialPort::runInstanceCommand(std::string myId, std::string* argv, int arg
 		this->write(argv[0], ans);
 	}
 	else {
-		ans << "Unrecognized serial port instance command \"" << function << "\"";
+	sendFailureArr(ans, "Unrecognized serial port instance command \"" + function + "\"");
 	}
-end:
-	return;
 }
 
 void SerialPort::runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& ans)
@@ -1030,7 +1079,7 @@ void SerialPort::runStaticCommand(std::string function, std::string* argv, int a
 	//used for QueryDosDevice
 	char pathBuffer[800];
 	if (argc == 0) {
-		ans << "You must specify additional arguments";
+		sendFailureArr(ans, "You must specify additional arguments");
 		return;
 	}
 	std::string& function2 = *argv;
@@ -1042,18 +1091,19 @@ void SerialPort::runStaticCommand(std::string function, std::string* argv, int a
 		//@Description This command does not attempt to connect to the given port; the `connect` command must be called separately.
 		//@Description Note that `portName` should be the name of the port (e.g. `COM1`), not its file (e.g. `\\.\\\\COM1`).
 		SerialPort* port;
-		if (argc == 1) { ans << "You must specify a port for this command"; return; }
+		if (argc == 1) { sendFailureArr(ans, "You must specify a port for this command"); return; }
 		if (QueryDosDeviceA(argv[1].c_str(), pathBuffer, 800) == 0) {
-			ans << "The specified port (\"" << argv[1] << "\") is invalid";
+			sendFailureArr(ans, "The specified port (\"" + argv[1] + "\") is invalid");
 			return;
 		}
-		if (serialPorts.count(argv[1]) == 0) {
+		auto find = serialPorts.find(argv[1]);
+		if (find == serialPorts.end()) {
 			port = new SerialPort(argv[1]);
 			serialPorts[argv[1]] = port;
 			commMethods[port->getID()] = port;
 		}
 		else {
-			port = serialPorts[argv[1]];
+			port = (*find).second;
 		}
 		ans << port->getID();
 	}
@@ -1152,7 +1202,7 @@ void SerialPort::runStaticCommand(std::string function, std::string* argv, int a
 		ans << "]";
 	}
 	else {
-		ans << "Unrecognized function";
+		sendFailureArr(ans, "Unrecognized function");
 	}
 }
 

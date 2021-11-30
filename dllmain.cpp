@@ -69,26 +69,26 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 		//@Return Success or failure message
 		//@Description Destroys an instance of a communication method if it is not currently connected
 		if (argc == 0) {
-			ans << "You must specify additional arguments";
+			sendFailureArr(ans, "You must specify additional arguments");
 			goto end;
 		}
 		std::string& function2 = *argv;
 		if (commMethods.count(function2) == 0) {
-			ans << "No such instance \"" << function2 << "\"";
+			sendFailureArr(ans, "No such instance \"" + function2 + "\"");
 			goto end;
 		}
 		auto commMethod = commMethods[function2];
 		if (commMethod->isConnected()) {
-			ans << "You must disconnect before destroying";
+			sendFailureArr(ans, "You must disconnect before destroying");
 			goto end;
 		}
 		if (!commMethod->destroy()) {
-			ans << "Comm method could not be destroyed. Ensure no operations are pending and the method is not connected.";
+			sendFailureArr(ans, "Comm method could not be destroyed. Ensure no operations are pending and the method is not connected.");
 			goto end;
 		}
 		commMethods.erase(function2);
 		delete commMethod;
-		ans << "Instance destroyed";
+		sendSuccessArr(ans, "Instance destroyed");
 	}
 	else {
 		if (commMethods.count(function) != 0) {
@@ -96,7 +96,7 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 			commMethod->runInstanceCommand(function, argv, argc, ans);
 		}
 		else {
-			ans << "Unrecognized function: " << function;
+			sendFailureArr(ans, "Unrecognized function: " + function);
 		}
 	}
 

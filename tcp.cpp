@@ -44,7 +44,7 @@ bool TcpClient::destroy() {
 void TcpClient::runStaticCommand(std::string function, std::string* argv, int argc, std::stringstream& ans)
 {
 	if (argc == 0) {
-		ans << "You must specify additional arguments";
+		sendFailureArr(ans, "Additional argument required");
 		return;
 	}
 	function = *argv;
@@ -58,7 +58,7 @@ void TcpClient::runStaticCommand(std::string function, std::string* argv, int ar
 		//@Description This command does not attempt to connect to the given endpoint; the `connect` command must be called separately.
 		//@Description `endpoint` should be a valid, resolvable IP endpoint, consisting of first either a domain or an IP.
 		//@Description Examples of valid endpoints: `127.0.0.1`, `example.com`
-		if (argc < 2) { ans << "You must specify an endpoint and port for this command"; return; }
+		if (argc < 2) { sendFailureArr(ans, "You must specify an endpoint and port for this command"); return; }
 		TcpClient* client = new TcpClient(argv[0], argv[1]);
 		tcpClients[argv[1]] = client;
 		commMethods[client->getID()] = client;
@@ -184,7 +184,7 @@ void TcpClient::runInstanceCommand(std::string function, std::string* argv, int 
 		//@Description Makes the extension send data read from this port back to Arma when `charToLookFor`, specified as a `char`, is read.
 		//@Description When the character is read, all data up to and **excluding** that character is sent back to Arma via the callback.
 		if (argc == 0 || argv[0].length() == 0) {
-			ans << "Additional argument required";
+			sendFailureArr(ans, "Additional argument required");
 			return;
 		}
 		this->readHandler->callbackOnChar(argv[0][0]);
@@ -196,7 +196,7 @@ void TcpClient::runInstanceCommand(std::string function, std::string* argv, int 
 		//@Description Makes the extension send data read from this port back to Arma when the character described by `charCodeToLookFor`, specified as an ASCII char code e.g. `65` for "A", is read.
 		//@Description When the character is read, all data read since the last callback, up to and **excluding** that character, is sent back to Arma via the callback.
 		if (argc == 0 || argv[0].length() == 0) {
-			ans << "Additional argument required";
+			sendFailureArr(ans, "Additional argument required");
 			return;
 		}
 		try {
@@ -204,7 +204,7 @@ void TcpClient::runInstanceCommand(std::string function, std::string* argv, int 
 			this->readHandler->callbackOnChar((char)val);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "callbackOnLength")) {
@@ -214,19 +214,19 @@ void TcpClient::runInstanceCommand(std::string function, std::string* argv, int 
 		//@Description Makes the extension send data read from this port back to Arma when the total amount of data read reaches `lengthToStopAt` characters long.
 		//@Description When the target amount of data is read, all data read since the last callback is sent back to Arma via the callback.
 		if (argc == 0 || argv[0].length() == 0) {
-			ans << "Additional argument required";
+			sendFailureArr(ans, "Additional argument required");
 			return;
 		}
 		try {
 			int val = std::stoi(argv[0]);
 			if (val < 1) {
-				ans << "Length must be at least 1";
+				sendFailureArr(ans, "Length must be at least 1");
 				return;
 			}
 			this->readHandler->callbackOnLength(val);
 		}
 		catch (std::exception e) {
-			ans << "Exception parsing input: " << e.what();
+			sendFailureArr(ans, "Exception parsing input: " + std::string(e.what()));
 		}
 	}
 	else if (equalsIgnoreCase(function, "isConnected")) {
