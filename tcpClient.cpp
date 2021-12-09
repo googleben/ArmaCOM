@@ -1,5 +1,5 @@
 #include "util.h"
-#include "tcp.h"
+#include "tcpClient.h"
 #include <boost/asio.hpp>
 #include <map>
 
@@ -31,6 +31,7 @@ TcpClient::TcpClient(std::string endpoint, std::string port) {
 
 TcpClient::~TcpClient()
 {
+	delete this->readHandler;
 	delete this->socket;
 }
 

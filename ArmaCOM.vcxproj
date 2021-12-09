@@ -162,14 +162,16 @@
     <ClInclude Include="ReadWriteHandler.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="serial.h" />
-    <ClInclude Include="tcp.h" />
+    <ClInclude Include="tcpClient.h" />
+    <ClInclude Include="tcpServer.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="boost_util.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="serial.cpp" />
-    <ClCompile Include="tcp.cpp" />
+    <ClCompile Include="tcpClient.cpp" />
+    <ClCompile Include="tcpServer.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

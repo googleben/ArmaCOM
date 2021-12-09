@@ -13,7 +13,8 @@
 #include "serial.h"
 #include "util.h"
 #include "framework.h"
-#include "tcp.h"
+#include "tcpClient.h"
+#include "tcpServer.h"
 
 
 boost::asio::io_context ioContext;
@@ -62,6 +63,9 @@ int __stdcall RVExtensionArgs(char* output, int outputSize, const char* function
 	}
 	else if (equalsIgnoreCase(function, "tcpclient")) {
 		TcpClient::runStaticCommand(function, argv, argc, ans);
+	}
+	else if (equalsIgnoreCase(function, "tcpserver")) {
+		TcpServer::runStaticCommand(function, argv, argc, ans);
 	}
 	else if (equalsIgnoreCase(function, "destroy")) {
 		//@GlobalCommand destroy

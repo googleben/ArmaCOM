@@ -332,7 +332,7 @@ namespace ArmaCOMTests
 
     [NonParallelizable]
     [TestFixture]
-    public class TcpOnlineTests : IDisposable
+    public class TcpClientOnlineTests : IDisposable
     {
         ExtensionFixture extension;
         TcpListener listener;
@@ -359,7 +359,7 @@ namespace ArmaCOMTests
             acceptThread.Start();
             theirSocket = extension.CallArgs("tcpClient", "create", "localhost", Settings.TCP_PORT.ToString());
             var r = extension.ReadOnce();
-            extension.CallArgs(theirSocket, "connect");
+            extension.CallArgs(theirSocket, "connectAsync");
             Task.WaitAny(tcs.Task, Task.Delay(10000));
             connected = true;
             return tcs.Task;
@@ -583,6 +583,192 @@ namespace ArmaCOMTests
                 listener.Stop();
                 acceptThread.Abort();
             }
+            this.extension.Dispose();
+        }
+    }
+
+    [NonParallelizable]
+    [TestFixture]
+    public class TcpServerOnlineTests : IDisposable
+    {
+        ExtensionFixture extension;
+        TcpClient ourSocket;
+        string listener;
+        string theirSocket;
+
+        bool connected = false;
+
+        private void Connect()
+        {
+            IPAddress addr = IPAddress.Loopback;
+            listener = extension.CallArgs("TcpServer", "create", Settings.TCP_PORT.ToString());
+            extension.CallArgs(listener, "listen");
+            ourSocket = new TcpClient();
+            var read = extension.ReadOnce();
+            ourSocket.Connect("localhost", Settings.TCP_PORT);
+            Task.WaitAny(read, Task.Delay(5000));
+            Assert.IsTrue(read.IsCompleted);
+            var (f, args) = read.Result;
+            Assert.AreEqual(f, "new_tcp_connection");
+            Assert.AreEqual(args[0], listener);
+            theirSocket = (string)args[1];
+            connected = true;
+        }
+
+        private void EnsureConnected()
+        {
+            if (!connected) Connect();
+        }
+
+        [OneTimeSetUp]
+        public void SetUp()
+        {
+            this.extension = new ExtensionFixture();
+        }
+
+        private static string Read(TcpClient client)
+        {
+            var stream = client.GetStream();
+            byte[] buff = new byte[256];
+            string data = null;
+            int bytesRead = 0;
+            if ((bytesRead = stream.Read(buff, 0, buff.Length)) != 0) {
+                data = System.Text.Encoding.ASCII.GetString(buff, 0, bytesRead);
+            }
+            return data;
+        }
+
+        private string Read()
+        {
+            return Read(ourSocket);
+        }
+
+        private void Write(string str)
+        {
+            var message = Encoding.ASCII.GetBytes(str);
+            ourSocket.GetStream().Write(message, 0, message.Length);
+        }
+
+        [Test, Order(0)]
+        public void CanConnect()
+        {
+            EnsureConnected();
+        }
+        
+        [Test, Order(1)]
+        public void GetEndpoint()
+        {
+            EnsureConnected();
+            bool isv6 = extension.CallArgs(theirSocket, "isIPv6").Equals("true");
+            string ep = extension.CallArgs(theirSocket, "getEndpoint");
+            //I'm pretty sure these are the only loopback values Boost will give,
+            //but if this test fails maybe make sure the extension isn't returning
+            //another valid loopback address
+            if (isv6) {
+                Assert.IsTrue(ep.StartsWith("::1"));
+            } else {
+                Assert.IsTrue(ep.StartsWith("127.0.0.1"));
+            }
+            //Should probably test the port number here but it's not immediately obvious
+            //how you're supposed to get the port from a TcpClient
+        }
+
+        [Test, Order(2)]
+        public void CanWrite()
+        {
+            EnsureConnected();
+            extension.CallArgs(theirSocket, "write", "Hello");
+            Assert.AreEqual("Hello", Read());
+        }
+
+        [Test, Order(3)]
+        public void CanRead()
+        {
+            EnsureConnected();
+            var r = extension.ReadOnce();
+            Write("Hello, World!\n");
+            Task.WaitAny(r, Task.Delay(5000));
+            Assert.IsTrue(r.IsCompleted);
+            var (func, args) = r.Result;
+            Assert.AreEqual(func, "data_read");
+            Assert.AreEqual(args[0], theirSocket);
+            Assert.AreEqual(args[1], "Hello, World!");
+        }
+
+        [Test, Order(4)]
+        public void SecondConnection()
+        {
+            EnsureConnected();
+
+            //start the new connection
+            TcpClient c = new TcpClient();
+            var r = extension.ReadOnce();
+            c.Connect("localhost", Settings.TCP_PORT);
+            Task.WaitAny(r, Task.Delay(5000));
+            Assert.IsTrue(r.IsCompleted);
+            var (f, args) = r.Result;
+            Assert.AreEqual(f, "new_tcp_connection");
+            Assert.AreEqual(args[0], listener);
+            string theirC = (string)args[1];
+
+            //write to the new connection
+            r = extension.ReadOnce();
+            var message = Encoding.ASCII.GetBytes("Test Write\n");
+            c.GetStream().Write(message, 0, message.Length);
+            Task.WaitAny(r, Task.Delay(5000));
+            Assert.IsTrue(r.IsCompleted);
+            (f, args) = r.Result;
+            Assert.AreEqual(f, "data_read");
+            Assert.AreEqual(args[0], theirC);
+            Assert.AreEqual(args[1], "Test Write");
+
+            //write to the original connection
+            r = extension.ReadOnce();
+            Write("Hello, World!\n");
+            Task.WaitAny(r, Task.Delay(5000));
+            Assert.IsTrue(r.IsCompleted);
+            (f, args) = r.Result;
+            Assert.AreEqual(f, "data_read");
+            Assert.AreEqual(args[0], theirSocket);
+            Assert.AreEqual(args[1], "Hello, World!");
+
+            //read from the new connection
+            extension.CallArgs(theirC, "write", "Test Read");
+            Assert.AreEqual(Read(c), "Test Read");
+
+            //read from the original connection
+            extension.CallArgs(theirSocket, "write", "Test Read 2");
+            Assert.AreEqual(Read(), "Test Read 2");
+
+            //disconnect and destroy the new connection
+            extension.CallArgs(theirC, "disconnect");
+            extension.CallArgs("destroy", theirC);
+        }
+
+        [Test, Order(Int32.MaxValue)]
+        public void CanDisconnectAndDestroy()
+        {
+            EnsureConnected();
+            Assert.IsTrue(connected);
+            extension.CallArgs(listener, "stopListening");
+            extension.CallArgs(theirSocket, "disconnect");
+            extension.CallArgs("destroy", theirSocket);
+            extension.CallArgs("destroy", listener);
+            ourSocket.Close();
+            connected = false;
+        }
+
+        [OneTimeTearDown]
+        public void Dispose()
+        {
+            if (connected) {
+                extension.CallArgs(listener, "stopListening");
+                extension.CallArgs(theirSocket, "disconnect");
+                extension.CallArgs("destroy", theirSocket);
+                extension.CallArgs("destroy", listener);
+                ourSocket.Close();
+            }
+            Thread.Sleep(1000);
             this.extension.Dispose();
         }
     }

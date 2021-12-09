@@ -27,10 +27,13 @@
     <ClInclude Include="BufferedWrite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="tcp.h">
+    <ClInclude Include="tcpClient.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ReadWriteHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tcpServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -44,10 +47,13 @@
     <ClCompile Include="util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tcp.cpp">
+    <ClCompile Include="tcpClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="boost_util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tcpServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

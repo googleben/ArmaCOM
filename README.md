@@ -21,9 +21,9 @@ Here's the steps in SQF using `COM1` to show how the syntax looks:
 //step 1:
 myPort = ("ArmaCOM" callExtension ["serial", ["create", "COM1"]]) select 0; //we have to 'select 0' because extension return arrays with the string response in index 0
 //step 3:
-diag_log ("ArmaCOM" callExtension ["connect", [myPort]]);
+diag_log ("ArmaCOM" callExtension [myPort, ["connect"]]);
 //step 4:
-diag_log ("ArmaCOM" callExtension ["write", [myPort, "Hello, World!"]]);
+diag_log ("ArmaCOM" callExtension [myPort, ["write", "Hello, World!"]]);
 ```
 
 If all goes well, the serial port should be opened and written to. Reading data takes a little more boilerplate, since ArmaCOM uses a callback to send receiveed data to SQF (as opposed to SQF having to poll the extension). The game will receive an `ExtensionCallback` event for every line (terminated by `\n`) the extension reads from a serial port, with `name = "ArmaCOM"` and `function = "data_read"` `_data` will be an array where the first element is the UUID and the second element is the received string (remember, Arma extensions can only communicate using strings, so you have to use [parseSimpleArray](https://community.bistudio.com/wiki/parseSimpleArray) to get the array *as* an array). Here's some example SQF for setting up an event handler:
@@ -52,6 +52,10 @@ Commands are case insensitive.
 
 If you're familiar with object oriented (OO) programming, it's easiest to think of the commands as being representative of an inner OO design; there's classes for each communication method which have both static and instance methods, as well as a constructor. To invoke a "static" method, the first argument to `callExtension` will be the name of the class. For example, if we wanted to list serial ports in an OO language, that might look like this: `Serial.listPorts()` which translates to this: `"ArmaCOM" callExtension ["serial", ["listPorts"]]`. To create an instance of the class (e.g. `myPort = new Serial("COM5")` in OO), we use the `create` command: `myPort = "ArmaCOM" callExtension ["serial", ["create", "COM5"]] select 0`. It's very important that we save the returned value to a variable; when you run `create`, ArmaCOM returns a UUID (if you don't know what that is, just think of it as a random ID) that represents the object you just created. If you lose that UUID, you lose access to that object, because you use the UUID as the first argument when calling "instance" methods like `write`: `myPort.write("my message")` becomes `"ArmaCOM" callExtension [myPort, ["write", "my message"]]`. If that all sounds terribly cumbersome and verbose, thank Arma and the tragedy that is SQF. If you think you have a better way to do it, *please* tell me, because I'm not a fan of this either, believe me.
 
+When the extension returns a simple value (e.g. `true` or `Hello, world!` or `["COM1", "COM2"]`), it should return *just* that value unless otherwise stated. If a command is noted to return a success message, that will take this form: `["SUCCESS", "some message here"]`. Failure messages look similar: `["FAILURE", "some message here"]`.
+
+Due to the messy nature of communications and threading, most commands can fail, so unless you're really sure it'll succeed be prepared for a failure message, even if "failure message" isn't listed in the command documentation. I typically only list a failure message as a possibility when the only other possible return value is a success message.
+
 Note that extensions are only allowed to send strings to Arma, so even if the command returns a boolean, that boolean will still be in string form. Unless otherwise noted, commands return a human-readable string with either a success message describing what was successfully done, or an error message describing what the extension failed to do and, if applicable, a Windows error message describing why it failed (e.g. "File not found").
 
 For a full list of commands, see [Documentation.md](Documentation.md)
@@ -72,7 +76,9 @@ addMissionEventHandler ["ExtensionCallback", {
 
 The extension passes `"ArmaCOM"` as the first argument, `"data_read"` as the second, and an array containing the UUID of which instance the data was read from, followed by the data itself. To change when the extension should send data to Arma, you can use the instance commands `callbackOnChar`, `callbackOnCharCode`, and `callbackOnLength`. When in `callbackOnChar` mode (or `callbackOnCharCode`, provided in case you want to use unprintable characters), the extension will read data until it comes across the characted specified, at which point it will send all the data it has read up to (and excluding) the specified characted. In `callbackOnLength` mode, the extension will read data until it has read the specified number of characters, at which point it will send all the data it has read.
 
-## Short SQF Example
+## Short SQF Examples
+
+Basic serial comms:
 
 ```SQF
 addMissionEventHandler ["ExtensionCallback", {
@@ -84,8 +90,52 @@ addMissionEventHandler ["ExtensionCallback", {
 }];
 systemChat ("ArmaCOM" callExtension "listPorts");
 myPort = ("ArmaCOM" callExtension ["serial", ["create", "COM1"]]) select 0;
-diag_log ("ArmaCOM" callExtension ["connect", [myPort]]);
-diag_log ("ArmaCOM" callExtension ["write", [myPort, "Hello, World!"]]);
+diag_log ("ArmaCOM" callExtension [myPort, ["connect"]]);
+diag_log ("ArmaCOM" callExtension [myPort, ["write", "Hello, World!"]]);
+```
+
+Basic TCP client:
+
+```SQF
+myClient = ("ArmaCOM" callExtension ["tcpClient", ["create", "127.0.0.1", "8080"]]) select 0;
+addMissionEventHandler ["ExtensionCallback", {
+    params ["_name", "_function", "_data"];
+    if ((_name isEqualTo "ArmaCOM") && (_function isEqualTo "data_read")) then {
+        private _resArr = parseSimpleArray _data;
+        systemChat (format ["Received message from UUID %1: %2", _resArr select 0, _resArr select 1]);
+    };
+    if ((_name isEqualTo "ArmaCOM") && (_function isEqualTo myClient)) then {
+        private _resArr = parseSimpleArray _data;
+        if ((_resArr select 0) isEqualTo "SUCCESS") then {
+            diag_log "Connected!";
+            diag_log ("ArmaCOM" callExtension [myClient, ["write", "Hello, World!"]]);
+        } else {
+            systemChat (format ["Failed to connect: %1", _resArr select 1]);
+        };
+    };
+}];
+diag_log ("ArmaCOM" callExtension [myClient, ["connectAsync"]]);
+```
+
+Basic TCP server:
+
+```SQF
+myServer = ("ArmaCOM" callExtension ["tcpServer", ["create", "8080"]]) select 0;
+addMissionEventHandler ["ExtensionCallback", {
+    params ["_name", "_function", "_data"];
+    if ((_name isEqualTo "ArmaCOM") && (_function isEqualTo "new_tcp_connection")) then {
+        private _resArr = parseSimpleArray _data;
+        if ((_resArr select 0) isEqualTo myServer) then {
+            private _client = _resArr select 1;
+            private _clientEndpoint = ("ArmaCOM" callExtension [_client, ["getEndpoint"]]) select 0;
+            systemChat (format ["New connection on UUID %1 from %2", _client, _clientEndpoint]);
+            diag_log ("ArmaCOM" callExtension [_client, ["write" "Hello and goodbye!"]]);
+            diag_log ("ArmaCOM" callExtension [_client, ["disconnect"]]);
+            diag_log ("ArmaCOM" callExtension ["destroy", [_client]]);
+        }
+    };
+}];
+diag_log ("ArmaCOM" callExtension [myServer, ["listen"]]);
 ```
 
 ## Notes
